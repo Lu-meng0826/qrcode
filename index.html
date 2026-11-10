@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2650c8">
+  <title>QR Link｜QR Code 連結解碼器</title>
+  <style>
+    :root {
+      --canvas:#f0e7fc; --paper:#fff; --powder:#e9ddfb; --powder-soft:#f7f1ff;
+      --sky:#7dd3fc; --sky-soft:#e0f7ff; --indigo:#6d7de8; --indigo-soft:#eceeff;
+      --primary:#2650c8; --primary-dark:#2347a5; --primary-soft:#e3ebff;
+      --green:#18794e; --green-soft:#e3f7ef; --amber:#8a5700; --amber-soft:#fff3d6;
+      --red:#b4233c; --red-soft:#ffe8ed; --ink:#172b4d; --soft-ink:#415574;
+      --muted:#6b7d99; --line:#cedaf0; --glass:rgba(255,255,255,.84);
+      --shadow:0 22px 60px rgba(38,80,200,.16); --shadow-soft:0 12px 28px rgba(35,71,165,.10);
+    }
+    * { box-sizing:border-box; }
+    input,select,textarea { max-width:100%; }
+    body {
+      margin:0; min-height:100vh; color:var(--ink);
+      font-family:"Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;
+      background:
+        radial-gradient(circle at 10% 8%,rgba(38,80,200,.14),transparent 30%),
+        radial-gradient(circle at 90% 12%,rgba(174,146,232,.28),transparent 28%),
+        radial-gradient(circle at 50% 96%,rgba(109,125,232,.20),transparent 34%),
+        linear-gradient(135deg,#e9ddfb 0%,#f7f1ff 50%,#eee3fb 100%);
+      background-attachment:fixed;
+    }
+    button { font:inherit; }
+    .container { width:min(1080px,calc(100% - 32px)); margin:auto; padding:26px 0 54px; }
+    .topbar {
+      display:flex; align-items:center; justify-content:space-between; gap:14px;
+      padding:13px 18px; border-radius:999px; background:var(--glass);
+      border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-soft); margin-bottom:22px;
+    }
+    .brand { display:flex; align-items:center; gap:11px; font-weight:950; letter-spacing:.03em; }
+    .logo {
+      width:42px; height:42px; border-radius:15px; display:grid; place-items:center;
+      color:#fff; font-size:21px; background:linear-gradient(135deg,var(--primary),var(--indigo));
+      box-shadow:0 12px 24px rgba(38,80,200,.28);
+    }
+    .top-note { color:var(--muted); font-size:13px; font-weight:800; }
+    .hero { display:grid; grid-template-columns:1.05fr .95fr; gap:20px; margin-bottom:22px; }
+    .hero-card {
+      position:relative; overflow:hidden; min-height:300px; padding:clamp(25px,4vw,44px);
+      border-radius:30px; background:linear-gradient(135deg,rgba(255,255,255,.94),rgba(255,255,255,.68)),
+      linear-gradient(135deg,rgba(38,80,200,.18),rgba(125,211,252,.22),rgba(109,125,232,.16));
+      border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow);
+    }
+    .hero-card:after {
+      content:""; position:absolute; width:180px; height:180px; right:-55px; bottom:-70px;
+      border-radius:50%; background:linear-gradient(135deg,var(--powder),var(--sky)); opacity:.8;
+    }
+    .hero-content { position:relative; z-index:1; }
+    .eyebrow {
+      display:inline-flex; padding:8px 13px; border-radius:999px; margin-bottom:16px;
+      color:var(--primary); background:var(--sky-soft); font-size:13px; font-weight:950;
+    }
+    h1 { margin:0; font-size:clamp(34px,5vw,55px); line-height:1.15; letter-spacing:.02em; }
+    .accent { color:var(--primary); }
+    .hero p { max-width:570px; color:var(--soft-ink); line-height:1.85; margin:15px 0 0; }
+    .side-stack { display:grid; gap:14px; }
+    .info-card {
+      padding:21px; border-radius:26px; background:rgba(255,255,255,.82);
+      border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-soft);
+    }
+    .info-card h2 { margin:0 0 8px; font-size:20px; }
+    .info-card p { margin:0; color:var(--soft-ink); line-height:1.75; font-size:14px; }
+    .mini-row { display:flex; gap:11px; align-items:center; margin-top:13px; }
+    .mini-icon {
+      width:40px; height:40px; flex:0 0 40px; border-radius:14px; display:grid; place-items:center;
+      background:var(--primary-soft); color:var(--primary); font-size:19px;
+    }
+    .section {
+      padding:24px; margin-bottom:20px; border-radius:28px; background:var(--glass);
+      border:1px solid rgba(255,255,255,.9); box-shadow:var(--shadow-soft); backdrop-filter:blur(14px);
+    }
+    .section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:17px; }
+    .section h2 { margin:0; font-size:25px; }
+    .section-desc { margin:6px 0 0; color:var(--soft-ink); line-height:1.7; font-size:14px; }
+    .workspace { display:grid; grid-template-columns: minmax(0,1fr) minmax(270px,.8fr); gap:17px; }
+    .upload-panel,.result-panel {
+      min-width:0; padding:19px; border-radius:23px; background:rgba(255,255,255,.88);
+      border:1px solid var(--line);
+    }
+    .dropzone {
+      min-height:220px; padding:25px 16px; border:2px dashed #aebfe2; border-radius:21px;
+      background:linear-gradient(135deg,#f7f1ff,#f1f8ff); display:flex; flex-direction:column;
+      justify-content:center; align-items:center; text-align:center; gap:10px; cursor:pointer;
+      transition:.2s ease;
+    }
+    .dropzone.dragover { border-color:var(--primary); background:var(--sky-soft); transform:scale(1.01); }
+    .upload-icon {
+      width:62px; height:62px; border-radius:21px; display:grid; place-items:center;
+      color:var(--primary); background:#fff; box-shadow:var(--shadow-soft); font-size:29px;
+    }
+    .dropzone strong { font-size:17px; }
+    .dropzone span { color:var(--muted); font-size:13px; line-height:1.6; }
+    .button-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+    .btn {
+      display:inline-flex; justify-content:center; align-items:center; gap:8px; min-height:45px;
+      border:0; border-radius:15px; padding:12px 17px; cursor:pointer; font-weight:900;
+      color:#fff; background:linear-gradient(135deg,var(--primary),var(--primary-dark));
+      box-shadow:0 12px 22px rgba(38,80,200,.2); transition:transform .18s ease,filter .18s ease;
+    }
+    .btn:hover { transform:translateY(-1px); filter:brightness(1.05); }
+    .btn.secondary { color:var(--primary); background:var(--primary-soft); box-shadow:none; }
+    .btn.ghost { color:var(--soft-ink); background:#f1f4fa; box-shadow:none; }
+    .btn:disabled { opacity:.5; cursor:not-allowed; transform:none; }
+    button:focus-visible,.dropzone:focus-visible,a:focus-visible,input:focus-visible {
+      outline:3px solid rgba(38,80,200,.38); outline-offset:3px;
+    }
+    .camera-wrap { display:none; margin-top:15px; }
+    .camera-wrap.active { display:block; }
+    video { display:block; width:100%; max-height:300px; object-fit:contain; border-radius:17px; background:#14213d; }
+    .camera-tip { color:var(--muted); font-size:12px; margin:8px 0 0; line-height:1.6; }
+    .preview-wrap { display:none; margin-top:14px; text-align:center; }
+    .preview-wrap.active { display:block; }
+    .preview-wrap img { max-width:100%; max-height:180px; border-radius:14px; border:1px solid var(--line); }
+    .preview-name { color:var(--muted); font-size:12px; margin-top:6px; overflow-wrap:anywhere; }
+    .result-panel { display:flex; flex-direction:column; }
+    .result-top { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+    .result-top h3 { margin:0; font-size:18px; }
+    .status { padding:6px 10px; border-radius:999px; font-size:12px; font-weight:900; background:var(--amber-soft); color:var(--amber); }
+    .status.success { background:var(--green-soft); color:var(--green); }
+    .status.error { background:var(--red-soft); color:var(--red); }
+    .empty-state {
+      flex:1; min-height:225px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding:20px; border-radius:18px; background:var(--powder-soft); color:var(--muted);
+    }
+    .empty-state .big { font-size:43px; margin-bottom:8px; }
+    .empty-state b { color:var(--ink); margin-bottom:5px; }
+    .output { display:none; min-width:0; }
+    .output.active { display:block; }
+    .output-label { color:var(--muted); font-size:12px; font-weight:900; margin:12px 0 6px; }
+    .decoded {
+      padding:13px; border-radius:14px; background:#f7f9ff; border:1px solid var(--line);
+      line-height:1.65; overflow-wrap:anywhere; white-space:pre-wrap; font-size:14px; max-height:180px; overflow:auto;
+    }
+    .link-card { padding:14px; border-radius:16px; background:var(--green-soft); border:1px solid #bce8d1; }
+    .link-card a { color:#11633f; font-weight:900; overflow-wrap:anywhere; line-height:1.6; }
+    .link-card p { color:#28664b; font-size:12px; margin:7px 0 0; }
+    .notice {
+      margin-top:14px; padding:12px 14px; border-radius:15px; background:var(--primary-soft);
+      color:var(--primary-dark); font-size:13px; line-height:1.7;
+    }
+    .notice.warn { background:var(--amber-soft); color:#754900; }
+    .help-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; }
+    .help-item { padding:16px; border-radius:19px; background:var(--powder-soft); border:1px solid var(--line); }
+    .help-item b { display:block; margin:7px 0 5px; }
+    .help-item p { margin:0; color:var(--soft-ink); font-size:13px; line-height:1.65; }
+    .help-icon { font-size:23px; }
+    .footer { text-align:center; color:var(--muted); font-size:12px; line-height:1.7; padding:8px 10px 0; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+    @media(max-width:850px) {
+      .hero,.workspace { grid-template-columns:1fr; }
+      .hero-card { min-height:250px; }
+      .help-grid { grid-template-columns:1fr 1fr; }
+    }
+    @media(max-width:600px) {
+      .container { width:calc(100% - 18px); padding-top:13px; }
+      .topbar { border-radius:21px; padding:11px 13px; }
+      .top-note { display:none; }
+      .hero { gap:12px; }
+      .hero-card { min-height:0; padding:25px 21px; border-radius:25px; }
+      .hero p { font-size:14px; }
+      .section { padding:16px; border-radius:23px; }
+      .section h2 { font-size:21px; }
+      .upload-panel,.result-panel { padding:13px; }
+      .dropzone { min-height:190px; padding:18px 12px; }
+      .button-row .btn { flex:1 1 100%; }
+      .help-grid { grid-template-columns:1fr; }
+    }
+    @media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition:none !important; } }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <nav class="topbar" aria-label="網站標題">
+      <div class="brand"><div class="logo" aria-hidden="true">⌗</div><span>QR Link 解碼小幫手</span></div>
+      <div class="top-note">簡單・快速・本機處理</div>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-card">
+        <div class="hero-content">
+          <div class="eyebrow">QR CODE · SCAN & DECODE</div>
+          <h1>讓 QR Code<br><span class="accent">變成可點擊的連結</span></h1>
+          <p>上傳 QR Code 圖片，或使用裝置相機掃描。程式會讀取 QR Code 內的文字，若內容是網址，就會幫你整理成可以直接開啟的連結。</p>
+        </div>
+      </div>
+      <aside class="side-stack">
+        <div class="info-card">
+          <h2>✨ 怎麼使用？</h2>
+          <p>選擇圖片或開啟相機，辨識成功後即可複製內容、開啟網址。</p>
+          <div class="mini-row"><div class="mini-icon">📷</div><div><b>圖片辨識與相機掃描</b><p>支援常見 QR Code 圖片格式</p></div></div>
+        </div>
+        <div class="info-card">
+          <h2>🔒 隱私小提醒</h2>
+          <p>圖片與辨識結果都在目前瀏覽器中處理，不會上傳到本工具的伺服器。</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="section" aria-labelledby="decode-heading">
+      <div class="section-head">
+        <div><h2 id="decode-heading">一、開始解碼</h2><p class="section-desc">上傳 QR Code 圖片，或使用相機即時掃描。</p></div>
+      </div>
+      <div class="workspace">
+        <div class="upload-panel">
+          <input id="fileInput" class="sr-only" type="file" accept="image/*">
+          <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="選擇或拖曳 QR Code 圖片">
+            <div class="upload-icon">⬆️</div>
+            <strong>拖曳圖片到這裡，或點擊選擇檔案</strong>
+            <span>支援 PNG、JPG、WEBP 等常見圖片格式</span>
+            <span>建議使用清晰、完整且沒有反光的 QR Code</span>
+          </div>
+          <div class="button-row">
+            <button id="chooseBtn" class="btn" type="button">🖼️ 選擇圖片</button>
+            <button id="cameraBtn" class="btn secondary" type="button">📸 開啟相機掃描</button>
+          </div>
+          <div id="cameraWrap" class="camera-wrap">
+            <video id="video" playsinline muted aria-label="相機即時畫面"></video>
+            <p class="camera-tip">請將 QR Code 放在畫面中央。相機功能通常需要 HTTPS 或 localhost，並請允許瀏覽器使用相機。</p>
+            <div class="button-row"><button id="stopCameraBtn" class="btn ghost" type="button">停止相機</button></div>
+          </div>
+          <div id="previewWrap" class="preview-wrap">
+            <img id="preview" alt="已選擇的 QR Code 圖片預覽">
+            <div id="previewName" class="preview-name"></div>
+          </div>
+        </div>
+
+        <div class="result-panel" aria-live="polite">
+          <div class="result-top"><h3>🔎 解碼結果</h3><span id="status" class="status">等待圖片</span></div>
+          <div id="emptyState" class="empty-state">
+            <div class="big">🔗</div><b>尚未讀取 QR Code</b><span>辨識結果會顯示在這裡</span>
+          </div>
+          <div id="output" class="output">
+            <div class="output-label">QR Code 內含內容</div>
+            <div id="decodedText" class="decoded"></div>
+            <div id="linkArea"></div>
+            <div class="button-row">
+              <button id="copyBtn" class="btn" type="button">📋 複製內容</button>
+              <button id="resetBtn" class="btn ghost" type="button">↻ 清除重來</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="compatNotice" class="notice warn" role="status">
+        提醒：本工具使用瀏覽器內建的 BarcodeDetector API 辨識 QR Code。請使用支援此 API 的新版 Chrome 或 Android Chrome；若瀏覽器不支援，將顯示提示。此版本不需連線外部 CDN，但並非所有瀏覽器都支援解碼。
+      </div>
+      <div id="message" class="notice" role="status">準備就緒！選擇一張 QR Code 圖片就能開始。</div>
+    </section>
+
+    <section class="section">
+      <div class="section-head"><div><h2>二、使用小提醒</h2><p class="section-desc">讓辨識更順利，也請留意掃描後的網址安全。</p></div></div>
+      <div class="help-grid">
+        <div class="help-item"><div class="help-icon">🖼️</div><b>圖片要清楚</b><p>避免模糊、裁切、反光或解析度太低，並盡量讓 QR Code 完整入鏡。</p></div>
+        <div class="help-item"><div class="help-icon">🌐</div><b>網址才會變成連結</b><p>若 QR Code 內容是網址，畫面會提供開啟連結；其他文字仍可直接複製。</p></div>
+        <div class="help-item"><div class="help-icon">🛡️</div><b>開啟前先確認</b><p>請先確認網址來源可信，不要隨意輸入密碼或個人資料到陌生網站。</p></div>
+      </div>
+    </section>
+    <div class="footer">QR Link 解碼小幫手｜單一 HTML 檔案・不需外部圖示或 CDN<br>相機存取需由使用者授權；辨識能力依瀏覽器支援情況而異。</div>
+  </main>
+
+  <script>
+    "use strict";
+    // 取得頁面元件，集中管理解碼、相機與重設流程。
+    const $ = (id) => document.getElementById(id);
+    const fileInput = $("fileInput");
+    const dropzone = $("dropzone");
+    const statusEl = $("status");
+    const messageEl = $("message");
+    const video = $("video");
+    let detector = null;
+    let cameraStream = null;
+    let scanFrame = null;
+    let currentText = "";
+    let currentObjectUrl = null;
+    let scanning = false;
+
+    function setStatus(text, kind = "") {
+      statusEl.textContent = text;
+      statusEl.className = "status" + (kind ? " " + kind : "");
+    }
+    function setMessage(text, warning = false) {
+      messageEl.textContent = text;
+      messageEl.className = "notice" + (warning ? " warn" : "");
+    }
+    function getDetector() {
+      if (!("BarcodeDetector" in window)) return null;
+      try {
+        return new BarcodeDetector({ formats: ["qr_code"] });
+      } catch (error) {
+        return null;
+      }
+    }
+    function isWebUrl(text) {
+      try {
+        const url = new URL(text);
+        return url.protocol === "https:" || url.protocol === "http:";
+      } catch (error) {
+        return false;
+      }
+    }
+    function showResult(text) {
+      currentText = text;
+      $("emptyState").style.display = "none";
+      $("output").classList.add("active");
+      $("decodedText").textContent = text;
+      const linkArea = $("linkArea");
+      linkArea.replaceChildren();
+      if (isWebUrl(text)) {
+        const card = document.createElement("div");
+        card.className = "link-card";
+        const label = document.createElement("div");
+        label.className = "output-label";
+        label.textContent = "可開啟的網址";
+        const link = document.createElement("a");
+        link.href = text;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = text;
+        const hint = document.createElement("p");
+        hint.textContent = "請確認網址可信，再點擊開啟。";
+        card.append(label, link, hint);
+        linkArea.append(card);
+        setStatus("辨識成功・網址", "success");
+        setMessage("QR Code 已成功轉換成連結！你可以點擊網址開啟，或複製內容。");
+      } else {
+        setStatus("辨識成功・文字", "success");
+        setMessage("已讀取 QR Code 內容。這不是標準 HTTP／HTTPS 網址，仍可複製文字使用。");
+      }
+    }
+    function showError(text) {
+      setStatus("無法辨識", "error");
+      setMessage(text, true);
+    }
+    async function decodeImage(file) {
+      if (!file || !file.type.startsWith("image/")) {
+        showError("請選擇有效的圖片檔案。");
+        return;
+      }
+      detector = getDetector();
+      if (!detector) {
+        showError("目前瀏覽器不支援 QR Code 解碼（BarcodeDetector API）。請改用新版 Chrome 或 Android Chrome。");
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        showError("圖片檔案太大，請選擇 15 MB 以下的圖片。");
+        return;
+      }
+      stopCamera();
+      setStatus("辨識中…");
+      setMessage("正在讀取圖片，請稍候。");
+      $("previewWrap").classList.add("active");
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+      currentObjectUrl = URL.createObjectURL(file);
+      $("preview").src = currentObjectUrl;
+      $("previewName").textContent = file.name;
+      try {
+        const bitmap = await createImageBitmap(file);
+        const results = await detector.detect(bitmap);
+        bitmap.close();
+        if (!results.length || !results[0].rawValue) {
+          showError("這張圖片沒有辨識到 QR Code。請確認圖片清晰、完整，或換一張圖片再試。");
+          return;
+        }
+        showResult(results[0].rawValue);
+      } catch (error) {
+        showError("圖片讀取失敗，請確認檔案格式正確，或改用其他圖片。");
+      }
+    }
+    function stopCamera() {
+      scanning = false;
+      if (scanFrame !== null) cancelAnimationFrame(scanFrame);
+      scanFrame = null;
+      if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+      cameraStream = null;
+      video.srcObject = null;
+      $("cameraWrap").classList.remove("active");
+      $("cameraBtn").disabled = false;
+    }
+    async function scanLoop() {
+      if (!scanning || !cameraStream) return;
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && detector) {
+        try {
+          const results = await detector.detect(video);
+          if (results.length && results[0].rawValue) {
+            showResult(results[0].rawValue);
+            stopCamera();
+            return;
+          }
+        } catch (error) {
+          // 相機畫面尚未就緒時略過該影格，繼續下一次掃描。
+        }
+      }
+      if (scanning) scanFrame = requestAnimationFrame(scanLoop);
+    }
+    async function startCamera() {
+      detector = getDetector();
+      if (!detector) {
+        showError("目前瀏覽器不支援相機 QR Code 辨識。請改用新版 Chrome 或 Android Chrome。");
+        return;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError("瀏覽器無法使用相機。請透過 HTTPS 或 localhost 開啟此頁面，並確認裝置有相機。");
+        return;
+      }
+      stopCamera();
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } }, audio: false
+        });
+        video.srcObject = cameraStream;
+        $("cameraWrap").classList.add("active");
+        $("cameraBtn").disabled = true;
+        await video.play();
+        scanning = true;
+        setStatus("相機掃描中…");
+        setMessage("請將 QR Code 對準相機畫面中央。");
+        scanLoop();
+      } catch (error) {
+        stopCamera();
+        if (error && (error.name === "NotAllowedError" || error.name === "PermissionDeniedError")) {
+          showError("相機權限遭到拒絕。請在瀏覽器網址列旁的網站設定中允許相機存取。");
+        } else {
+          showError("無法啟動相機。請確認相機未被其他程式占用，並使用 HTTPS 或 localhost。");
+        }
+      }
+    }
+    function resetAll() {
+      stopCamera();
+      currentText = "";
+      fileInput.value = "";
+      $("output").classList.remove("active");
+      $("emptyState").style.display = "flex";
+      $("previewWrap").classList.remove("active");
+      $("preview").removeAttribute("src");
+      $("previewName").textContent = "";
+      $("linkArea").replaceChildren();
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+      currentObjectUrl = null;
+      setStatus("等待圖片");
+      setMessage("準備就緒！選擇一張 QR Code 圖片就能開始。");
+    }
+
+    // 按鈕、鍵盤與拖放操作共用同一個檔案處理函式。
+    $("chooseBtn").addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("click", () => fileInput.click());
+    dropzone.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        fileInput.click();
+      }
+    });
+    fileInput.addEventListener("change", event => {
+      const file = event.target.files && event.target.files[0];
+      if (file) decodeImage(file);
+    });
+    ["dragenter", "dragover"].forEach(type => dropzone.addEventListener(type, event => {
+      event.preventDefault();
+      dropzone.classList.add("dragover");
+    }));
+    ["dragleave", "drop"].forEach(type => dropzone.addEventListener(type, event => {
+      event.preventDefault();
+      dropzone.classList.remove("dragover");
+    }));
+    dropzone.addEventListener("drop", event => {
+      const file = event.dataTransfer && event.dataTransfer.files[0];
+      if (file) decodeImage(file);
+    });
+    $("cameraBtn").addEventListener("click", startCamera);
+    $("stopCameraBtn").addEventListener("click", () => {
+      stopCamera();
+      setStatus(currentText ? "辨識成功" : "等待圖片", currentText ? "success" : "");
+      setMessage("相機已停止。");
+    });
+    $("copyBtn").addEventListener("click", async () => {
+      if (!currentText) return;
+      try {
+        await navigator.clipboard.writeText(currentText);
+        setMessage("已複製 QR Code 內容到剪貼簿！");
+      } catch (error) {
+        // 在不支援 Clipboard API 的環境，選取文字供使用者手動複製。
+        const range = document.createRange();
+        range.selectNodeContents($("decodedText"));
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        setMessage("瀏覽器未允許自動複製，已選取結果文字，請按 Ctrl+C 或長按複製。", true);
+      }
+    });
+    $("resetBtn").addEventListener("click", resetAll);
+    window.addEventListener("pagehide", stopCamera);
+    if (!("BarcodeDetector" in window)) {
+      $("compatNotice").textContent = "目前瀏覽器未提供 BarcodeDetector API，因此無法在此瀏覽器直接解碼 QR Code。建議改用新版 Chrome 或 Android Chrome。此工具不載入外部程式庫，離線可開啟頁面，但解碼功能仍取決於瀏覽器支援。";
+    }
+  </script>
+</body>
+</html>
